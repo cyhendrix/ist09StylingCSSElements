@@ -85,7 +85,98 @@ const debugTasks=[
 {broken:'img {\n  float: middle;\n}',fixed:'img {\n  float: left;\n}',test:c=>/float\s*:\s*(left|right)\s*;/i.test(c),why:'Common float values are left and right, not middle.'}
 ];let debugOrder=shuffle(debugTasks.map((_,i)=>i)),debugPos=0;function showDebug(){const i=debugOrder[debugPos],t=debugTasks[i];$('debugCard').innerHTML=`<h3>Bug ${debugPos+1} of ${debugTasks.length}</h3><p>Repair this CSS:</p><textarea id="debugAnswer" class="editor" spellcheck="false">${t.broken}</textarea>`;$('debugProgress').style.width=`${debugPos/debugTasks.length*100}%`;$('debugFeedback').className='feedback';$('debugNext').classList.add('hidden');$('checkDebug').classList.remove('hidden')}$('checkDebug').onclick=()=>{const i=debugOrder[debugPos],t=debugTasks[i],answer=$('debugAnswer').value;if(t.test(answer)){if(!debugEarned.has(i)){debugEarned.add(i);setScore('debug',debugEarned.size*10)}feedback('debugFeedback',true,`Correct! ${t.why} +10 points`);$('checkDebug').classList.add('hidden');$('debugNext').classList.remove('hidden')}else feedback('debugFeedback',false,`Not fixed yet. Look carefully at the selector, punctuation, property, and value.`)};$('debugNext').onclick=()=>{if(debugPos===debugOrder.length-1){$('debugCard').innerHTML=`<h3>Debugging Complete</h3><p>You repaired <strong>${debugEarned.size} of ${debugTasks.length}</strong> bugs.</p>`;$('debugProgress').style.width='100%';$('debugNext').textContent='Next Activity: Apply';$('debugNext').onclick=()=>openPanel('apply');return}debugPos++;showDebug()};showDebug();
 
-const initialLiveCss=$('liveCss').value;function previewLive(){$('livePreview').srcdoc=`<!doctype html><html><head><style>${$('liveCss').value}</style></head><body>${$('liveHtml').value}</body></html>`}$('previewLive').onclick=previewLive;$('resetApply').onclick=()=>{$('liveCss').value=initialLiveCss;$('applyFeedback').className='feedback';$('submitBox').classList.add('hidden');setScore('apply',0);previewLive()};$('checkApply').onclick=()=>{const c=$('liveCss').value,problems=[];if(!/body\s*\{[\s\S]*background(-color)?\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('a body background color');if(!/img\s*\{[\s\S]*width\s*:\s*250px\s*;?[\s\S]*\}/i.test(c))problems.push('image width of 250px');if(!/img\s*\{(?=[\s\S]*(border-style\s*:\s*solid|border\s*:[^;{}]*solid))(?=[\s\S]*(border-color\s*:|border\s*:[^;{}]*(#[0-9a-f]{3,8}|[a-z]+)))(?=[\s\S]*(border-width\s*:|border\s*:\s*\d+px))[\s\S]*\}/i.test(c))problems.push('a solid image border with width and color');if(!/img\s*\{[\s\S]*border-radius\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('rounded image corners');if(!/img\s*\{[\s\S]*margin\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('image margin');if(problems.length){feedback('applyFeedback',false,`Still needed: ${problems.join('; ')}.`);previewLive();return}setScore('apply',40);feedback('applyFeedback',true,'Your page meets all five styling requirements. +40 points');previewLive();showResults()};
+const initialLiveCss=$('liveCss').value;function previewLive(){$('livePreview').srcdoc=`<!doctype html><html><head><style>${$('liveCss').value}</style></head><body>${$('liveHtml').value}
+<style id="practiceRecoveryStyles">
+.recovery-tools{background:#fff8dc;border:3px solid #f2c94c;border-radius:14px;padding:17px 20px;margin:20px 0;box-shadow:0 7px 20px #32134a18}
+.recovery-tools h3{margin:0 0 8px;color:#51217a}.recovery-tools p{margin:7px 0;line-height:1.45}
+.recovery-tools .recovery-buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.recovery-tools button{border:2px solid #51217a;border-radius:9px;padding:11px 15px;background:#51217a;color:#fff;font-weight:800;cursor:pointer}
+.recovery-tools button.secondary{background:#fff;color:#51217a}.recovery-status{font-weight:800;margin-top:10px!important}
+</style>
+<section id="practiceRecoveryTools" class="recovery-tools">
+  <h3>Saved Work &amp; Grade Recovery</h3>
+  <p>Your name, class period, and typed answers save automatically on this computer and browser.</p>
+  <p>If a submitted grade does not appear in the score report, click <strong>Submit Grade Again</strong>.</p>
+  <div class="recovery-buttons">
+    <button id="retrySavedGrade" type="button">Submit Grade Again</button>
+    <button id="clearSavedPractice" class="secondary" type="button">Clear Saved Work</button>
+  </div>
+  <p id="practiceRecoveryStatus" class="recovery-status" role="status" aria-live="polite"></p>
+</section>
+<script id="practiceRecoveryScript">
+(function(){
+  const baseKey="istPractice:"+location.pathname;
+  const draftKey=baseKey+":draft", pendingKey=baseKey+":pending";
+  const status=()=>document.getElementById("practiceRecoveryStatus");
+  const retry=()=>document.getElementById("retrySavedGrade");
+  let submittedNow=false;
+  function fields(){
+    return [...document.querySelectorAll("input[id],select[id],textarea[id]")].filter(el=>el.type!=="hidden");
+  }
+  function saveDraft(){
+    const data={};
+    fields().forEach(el=>{
+      if(el.type==="radio"||el.type==="checkbox") data[el.id]={checked:el.checked};
+      else data[el.id]={value:el.value};
+    });
+    localStorage.setItem(draftKey,JSON.stringify(data));
+  }
+  function restoreDraft(root=document){
+    let data={};try{data=JSON.parse(localStorage.getItem(draftKey)||"{}")}catch(e){}
+    [...root.querySelectorAll("input[id],select[id],textarea[id]")].forEach(el=>{
+      const v=data[el.id];if(!v)return;
+      if(el.type==="radio"||el.type==="checkbox") el.checked=!!v.checked;
+      else if(!el.value||el.tagName==="TEXTAREA") el.value=v.value??"";
+    });
+  }
+  document.addEventListener("input",saveDraft);
+  document.addEventListener("change",saveDraft);
+  const observer=new MutationObserver(list=>list.forEach(m=>m.addedNodes.forEach(n=>{
+    if(n.nodeType===1)restoreDraft(n);
+  })));
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+  const nativeSubmit=HTMLFormElement.prototype.submit;
+  HTMLFormElement.prototype.submit=function(){
+    if(String(this.action).includes("docs.google.com/forms")){
+      const payload={action:this.action,target:this.target||"practiceRecoveryTarget",values:{}};
+      new FormData(this).forEach((v,k)=>payload.values[k]=String(v));
+      localStorage.setItem(pendingKey,JSON.stringify(payload));
+      submittedNow=true;
+      if(status())status().textContent="Sending grade to Google Forms… Keep this page open for a few seconds.";
+      if(retry())retry().disabled=false;
+    }
+    return nativeSubmit.call(this);
+  };
+  function send(payload){
+    let frame=document.querySelector('iframe[name="'+payload.target+'"]');
+    if(!frame){frame=document.createElement("iframe");frame.name=payload.target;frame.hidden=true;document.body.append(frame)}
+    const form=document.createElement("form");form.method="POST";form.action=payload.action;form.target=payload.target;form.hidden=true;
+    Object.entries(payload.values).forEach(([name,value])=>{const i=document.createElement("input");i.name=name;i.value=value;form.append(i)});
+    document.body.append(form);submittedNow=true;nativeSubmit.call(form);setTimeout(()=>form.remove(),1000);
+    if(status())status().textContent="Grade sent again. Keep this page open for five seconds, then check the score report.";
+  }
+  document.addEventListener("DOMContentLoaded",()=>{
+    restoreDraft();
+    const pending=localStorage.getItem(pendingKey);
+    if(status())status().textContent=pending?"A saved grade is available if you need to submit it again.":"Typed work will save automatically on this device.";
+    document.querySelectorAll("iframe[name]").forEach(frame=>frame.addEventListener("load",()=>{
+      if(!submittedNow)return;submittedNow=false;
+      if(status())status().textContent="Google Forms responded. Your grade was sent; use Submit Grade Again if it is missing from the report.";
+    }));
+    retry().onclick=()=>{
+      let p;try{p=JSON.parse(localStorage.getItem(pendingKey)||"null")}catch(e){}
+      if(!p){status().textContent="No saved grade is available yet. Finish the lab and click Submit My Results first.";return}
+      retry().disabled=true;send(p);setTimeout(()=>retry().disabled=false,5000);
+    };
+    document.getElementById("clearSavedPractice").onclick=()=>{
+      if(!confirm("Clear saved work and the saved grade from this computer?"))return;
+      localStorage.removeItem(draftKey);localStorage.removeItem(pendingKey);
+      status().textContent="Saved work was cleared. Refresh the page to start over.";
+    };
+  });
+})();
+</script>
+</body></html>`}$('previewLive').onclick=previewLive;$('resetApply').onclick=()=>{$('liveCss').value=initialLiveCss;$('applyFeedback').className='feedback';$('submitBox').classList.add('hidden');setScore('apply',0);previewLive()};$('checkApply').onclick=()=>{const c=$('liveCss').value,problems=[];if(!/body\s*\{[\s\S]*background(-color)?\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('a body background color');if(!/img\s*\{[\s\S]*width\s*:\s*250px\s*;?[\s\S]*\}/i.test(c))problems.push('image width of 250px');if(!/img\s*\{(?=[\s\S]*(border-style\s*:\s*solid|border\s*:[^;{}]*solid))(?=[\s\S]*(border-color\s*:|border\s*:[^;{}]*(#[0-9a-f]{3,8}|[a-z]+)))(?=[\s\S]*(border-width\s*:|border\s*:\s*\d+px))[\s\S]*\}/i.test(c))problems.push('a solid image border with width and color');if(!/img\s*\{[\s\S]*border-radius\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('rounded image corners');if(!/img\s*\{[\s\S]*margin\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('image margin');if(problems.length){feedback('applyFeedback',false,`Still needed: ${problems.join('; ')}.`);previewLive();return}setScore('apply',40);feedback('applyFeedback',true,'Your page meets all five styling requirements. +40 points');previewLive();showResults()};
 function showResults(){const earned=total(),grade=Math.round(earned/MAX*100),labels={review:['Review',40],files:['Link Files',40],practice:['Write CSS',50],debug:['Debug',80],apply:['Apply',40]};$('finalResult').innerHTML=`<strong>${earned} points out of ${MAX} - Grade: ${grade}%</strong>`;$('breakdown').innerHTML='';Object.entries(labels).forEach(([key,[name,max]])=>{const d=document.createElement('div');d.innerHTML=`<strong>${name}</strong>${scores[key]} / ${max}`;$('breakdown').append(d)});$('submitBox').classList.remove('hidden');$('reviewMissed').classList.toggle('hidden',missed.length===0);$('submitBox').scrollIntoView({behavior:'smooth',block:'center'})}$('finishLab').onclick=showResults;
 $('reviewMissed').onclick=()=>{const list=$('missedList'),opening=list.classList.contains('hidden');if(opening){list.innerHTML='';missed.forEach((m,i)=>{const d=document.createElement('div');d.className='reviewitem';d.innerHTML=`<h4>${i+1}. ${m.question}</h4><p><strong>Your answer:</strong> ${m.answer}</p><p><strong>Correct answer:</strong> ${m.correct}</p><p>${m.why}</p>`;list.append(d)})}list.classList.toggle('hidden');$('reviewMissed').textContent=opening?'Hide Missed Questions':'Review Missed Questions'};
 function percentageGrade(){return Math.round(total()/MAX*100)}function resultLabel(){return`${total()} points out of ${MAX} - Grade: ${percentageGrade()}%`}$('submitResults').onclick=()=>{const first=$('firstName').value.trim(),last=$('lastName').value.trim(),name=`${last}, ${first}`,period=$('classPeriod').value;if(!first||!last||!period){feedback('submitFeedback',false,'Enter your first name, last name, and choose your class period at the top of the lab.');if(!first)$('firstName').focus();else if(!last)$('lastName').focus();else $('classPeriod').focus();return}const form=document.createElement('form');form.method='POST';form.action='https://docs.google.com/forms/d/e/1FAIpQLSd4wTjzGT39UHEQ8WdzPMXfDMhVJ8d6BzioxzQXqz5zevRWdw/formResponse';form.target='resultsTarget';form.className='hidden';[['entry.2089413779',name],['entry.890934651',period],['entry.646173439','Lesson 09 | Styling Elements with CSS'],['entry.962158861',String(percentageGrade())]].forEach(([key,value])=>{const input=document.createElement('input');input.name=key;input.value=value;form.append(input)});document.body.append(form);form.submit();form.remove();$('submitResults').disabled=true;feedback('submitFeedback',true,`Results submitted for ${first} ${last}: ${resultLabel()}.`);$('submissionNoticeText').textContent=`${first} ${last}, your grade of ${percentageGrade()}% has been submitted.`;$('submissionNotice').classList.remove('hidden');$('closeNotice').focus()};$('closeNotice').onclick=()=>$('submissionNotice').classList.add('hidden');
