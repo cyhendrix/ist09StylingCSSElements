@@ -10,11 +10,11 @@
 .noticeoverlay{position:fixed;inset:0;background:#21172bcc;display:flex;align-items:center;justify-content:center;padding:20px;z-index:1000}.noticecard{width:min(470px,94vw);background:#fff;border:5px solid var(--g);border-radius:18px;padding:28px;text-align:center;box-shadow:0 18px 60px #0008}.noticecard h2{margin:0 0 10px;color:var(--good);font-size:2rem}.noticecard p{font-size:1.1rem;line-height:1.5}
 </style>
 </head>
-<body>
+<body data-retry-lesson="9">
 <header class="hero"><div><p class="eyebrow">INTRO TO SOFTWARE TECHNOLOGY</p><h1>Styling Elements with CSS</h1><p>Lesson 09 Practice Lab - files, links, rule-sets, layout properties, and debugging</p></div><div class="scorebox"><strong id="score">0</strong><span>of 250 points</span></div></header>
 <main>
 <section class="student"><h2>Student Information</h2><p>Enter your first name, last name, and choose your class period. Then click <strong>Begin Practice Lab</strong> to open the activities.</p><div class="fields"><label>First Name<input id="firstName" type="text" autocomplete="given-name" placeholder="First name"></label><label>Last Name<input id="lastName" type="text" autocomplete="family-name" placeholder="Last name"></label><label>Class Period<select id="classPeriod"><option value="">Choose your class</option><option>1st Block</option><option>2nd Block</option><option>3rd Block</option><option>4th Block</option></select></label></div><div class="buttons"><button id="beginLab" class="action">Begin Practice Lab</button></div><div id="studentInfoFeedback" class="feedback"></div></section>
-<div id="labActivities" class="hidden"><nav id="labTabs" class="tabs" aria-label="Practice activities"><button class="tab active" data-panel="review">1. Review</button><button class="tab" data-panel="files">2. Link Files</button><button class="tab" data-panel="practice">3. Write CSS</button><button class="tab" data-panel="debug">4. Debug</button><button class="tab" data-panel="apply">5. Apply</button></nav>
+<div id="labActivities" class="hidden"><div class="note"><strong>Two tries:</strong> A correct first answer lets you continue immediately. If your first answer is incorrect, try once more. After the second try, continue whether your answer is correct or incorrect.</div><nav id="labTabs" class="tabs" aria-label="Practice activities"><button class="tab active" data-panel="review">1. Review</button><button class="tab" data-panel="files">2. Link Files</button><button class="tab" data-panel="practice">3. Write CSS</button><button class="tab" data-panel="debug">4. Debug</button><button class="tab" data-panel="apply">5. Apply</button></nav>
 
 <section id="review" class="panel active"><h2>Quick CSS Review</h2><section class="note"><strong>Remember:</strong> HTML provides the page structure. CSS controls the appearance. Connect the two files by placing the <code>&lt;link&gt;</code> inside the HTML <code>&lt;head&gt;</code>:<pre class="codeblock"><code>&lt;head&gt;
   &lt;link rel="stylesheet" href="style.css"&gt;
@@ -294,5 +294,224 @@ previewLive();updateScore();
   });
 })();
 </script>
+<style>.retry-correct{background:#e9f8f0!important;border-color:#18794e!important}.retry-wrong{background:#fff0ee!important;border-color:#b42318!important}</style><script id="twoTryPolicy">
+(function(){
+'use strict';
+const lesson=Number(document.body.dataset.retryLesson);
+const key='istPractice:'+location.pathname+':twoTry:v1';
+let state;try{state=JSON.parse(localStorage.getItem(key)||'null')}catch(e){}
+const recovered=!!state;
+state=state||{quizzes:{},tasks:{},baseline:{},fields:{},debug:{}};
+const controllers=[];
+const el=id=>document.getElementById(id);
+function save(){
+ state.fields={};document.querySelectorAll('input[id],textarea[id],select[id]').forEach(e=>{
+  if(e.type!=='hidden')state.fields[e.id]=e.value;
+ });
+ localStorage.setItem(key,JSON.stringify(state));
+}
+function score(key,value){scores[key]=Math.max(state.baseline[key]||0,value);updateScore();}
+function locked(t){return !!t.done||t.checks>=2}
+function status(id,t,good,message){
+ feedback(id,good,message+' '+t.checks+' of 2 tries used. '+(locked(t)?'Continue to the next question or activity.':'Change your answer and try once more.'));
+}
+function task(id){return state.tasks[id]||(state.tasks[id]={checks:0,done:false})}
+function reviewMiss(section,question,answer,correct,why){
+ for(let i=missed.length-1;i>=0;i--)if(missed[i].section===section&&missed[i].question===question)missed.splice(i,1);
+ if(answer!==correct)missed.push({section,question,answer,correct,why});
+}
+function quiz(prefix,questions,section,points,nextPanel){
+ const qstate=state.quizzes[prefix]||(state.quizzes[prefix]={
+  order:shuffle(questions.map((_,i)=>i)),pos:0,items:{},
+  choices:questions.map(q=>shuffle(q[1].map((_,i)=>i)))
+ });
+ const card=el(prefix+'Card'),next=el(prefix+'Next');
+ function render(){
+  score(section,Object.values(qstate.items).filter(t=>t.good).length*points);
+  if(qstate.pos>=qstate.order.length){
+   const correct=Object.values(qstate.items).filter(t=>t.good).length;
+   card.innerHTML='<h3>Activity Complete</h3><p>'+correct+' of '+questions.length+' correct.</p>';
+   el(prefix+'Progress').style.width='100%';
+   next.textContent='Next Activity: '+nextPanel[0].toUpperCase()+nextPanel.slice(1);
+   next.classList.remove('hidden');next.onclick=()=>openPanel(nextPanel);
+   el(prefix+'Feedback').className='feedback';return;
+  }
+  const index=qstate.order[qstate.pos],q=questions[index],t=qstate.items[index]||(qstate.items[index]={checks:0,done:false,answer:null,good:false});
+  card.innerHTML='';const heading=document.createElement('h3');heading.textContent=(qstate.pos+1)+'. '+q[0];
+  const box=document.createElement('div');box.className='choices';card.append(heading,box);
+  qstate.choices[index].forEach(choice=>{
+   const button=document.createElement('button');button.className='choice';button.textContent=q[1][choice];button.disabled=locked(t);
+   if(t.checks&&t.answer===choice)button.classList.add(t.good?'correct':'wrong');
+   button.onclick=()=>{
+    if(locked(t))return;
+    t.checks++;t.answer=choice;t.good=choice===q[2];t.done=t.good||t.checks>=2;
+    if(t.done)reviewMiss(section,q[0],q[1][choice],q[1][q[2]],q[3]);
+    save();render();
+   };box.append(button);
+  });
+  el(prefix+'Progress').style.width=(qstate.pos/questions.length*100)+'%';
+  next.classList.toggle('hidden',!locked(t));next.textContent=qstate.pos===questions.length-1?'Finish Activity':'Next Question';
+  next.onclick=()=>{if(!locked(t))return;qstate.pos++;save();render()};
+  if(t.checks)status(prefix+'Feedback',t,t.good,t.good?'Correct! '+q[3]:locked(t)?'Incorrect. '+q[3]:'Not correct yet. You have one more try.');
+  else el(prefix+'Feedback').className='feedback';
+ }
+ controllers.push(render);render();
+}
+function lockFields(ids,yes){ids.forEach(id=>{if(el(id))el(id).disabled=yes})}
+function simple(id,checkId,nextId,fields,validate,onSuccess){
+ const t=task(id);
+ const update=()=>{
+  el(checkId).disabled=locked(t);if(nextId)el(nextId).classList.toggle('hidden',!locked(t));
+  lockFields(fields,locked(t));
+ };
+ el(checkId).onclick=()=>{
+  if(locked(t))return;const result=validate();t.checks++;t.good=result.good;t.done=t.good||t.checks>=2;
+  if(t.good)onSuccess();update();save();
+  status(id+'Feedback',t,t.good,result.message);
+  if(t.done&&!nextId)showResults();
+ };
+ update();
+ if(t.checks)status(id+'Feedback',t,!!t.good,t.good?'Activity complete.':locked(t)?'Both tries are complete.':'Your first check is saved. You have one more try.');
+ return t;
+}
+function imageBuild(){
+ const t=simple('build','checkBuild','toAlt',[],()=>{
+  const a=[...el('buildSlots').children].map(x=>x.dataset.code||'');
+  return {good:a.every((x,i)=>x===buildParts[i]),message:a.every((x,i)=>x===buildParts[i])?'Correct image tag!':'The tag order is not correct.'};
+ },()=>score('build',30));
+ const oldPlace=place,oldClear=clearSlot;
+ place=function(code,slot){if(!locked(t)){oldPlace(code,slot);state.slots=[...el('buildSlots').children].map(x=>x.dataset.code||'');save()}};
+ clearSlot=function(slot){if(!locked(t))oldClear(slot)};
+ if(state.slots)state.slots.forEach((code,i)=>{if(code&&el('buildSlots').children[i])oldPlace(code,el('buildSlots').children[i])});
+ el('resetBuild').disabled=locked(t);
+ el('resetBuild').onclick=()=>{
+  if(locked(t))return;buildActivity();state.slots=[];save();
+  feedback('buildFeedback',false,'Tiles cleared. '+t.checks+' of 2 tries used; your tries were not reset.');
+ };
+}
+function imageApply(){
+ simple('apply','checkApply',null,['imageCode','creator','source','license','permission'],()=>{
+  const code=el('imageCode').value.trim(),src=(code.match(/src\s*=\s*["']([^"']+)["']/i)||[])[1]||'',alt=(code.match(/alt\s*=\s*["']([^"']*)["']/i)||[])[1]||'',problems=[];
+  if(!/^<img\b[^>]*>$/i.test(code)||/<\/img>/i.test(code))problems.push('one complete img tag');
+  if(!/\.(jpe?g|png)$/i.test(src))problems.push('a quoted image filename');
+  if(alt.trim().length<8)problems.push('descriptive alt text');
+  if(!el('creator').value.trim())problems.push('creator');
+  if(!el('source').value.trim())problems.push('source');
+  if(!el('license').value.trim())problems.push('license');
+  if(el('permission').value.trim().length<5)problems.push('permission explanation');
+  return {good:!problems.length,message:problems.length?'Add or correct: '+problems.join(', ')+'.':'Your image tag and attribution are complete.'};
+ },()=>score('apply',40));
+ el('resetApply').onclick=()=>{if(!locked(task('apply'))){resetApply();save()}};
+ el('resetApply').disabled=locked(task('apply'));
+}
+function cssFiles(){
+ simple('files','checkFiles','toPractice',['htmlEditor','cssEditor','cssFilename'],()=>{
+  const html=el('htmlEditor').value,css=el('cssEditor').value,problems=[];
+  if(!cssCreated)problems.push('create the CSS file');
+  if(!cssRenamed)problems.push('rename it style.css');
+  const tag=(html.match(/<head>[\s\S]*?<\/head>/i)||[''])[0];
+  if(!/<link\b(?=[^>]*rel=["']stylesheet["'])(?=[^>]*href=["']style\.css["'])[^>]*>/i.test(tag))problems.push('link style.css inside head');
+  if(!/body\s*\{[\s\S]*background-color\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(css))problems.push('a body background-color');
+  return {good:!problems.length,message:problems.length?'Still needed: '+problems.join('; ')+'.':'Your CSS file is created, renamed, and linked.'};
+ },()=>score('files',40));
+ const t=task('files');['addCssFile','renameCss','resetFiles'].forEach(id=>{
+  const old=el(id).onclick;el(id).onclick=()=>{if(!locked(t))old()};
+  if(locked(t))el(id).disabled=true;
+ });
+ if(state.fileState){cssCreated=state.fileState.created;cssRenamed=state.fileState.renamed;cssFileName=state.fileState.name;el('cssFile').textContent=cssFileName;el('cssFile').classList.toggle('hidden',!cssCreated);el('addCssFile').classList.toggle('hidden',cssCreated);el('renameBox').classList.toggle('hidden',!cssCreated||cssRenamed);}
+}
+function cssPractice(){
+ const answers=state.practice||(state.practice={});
+ function render(){
+  practiceTasks.forEach((t,i)=>{
+   const input=el('practice'+i),item=answers[i]||(answers[i]={checks:0,done:earnedPractice.has(i),good:earnedPractice.has(i),value:input.value});
+   input.value=item.value;input.disabled=locked(item);
+   input.classList.toggle('retry-correct',!!item.good);input.classList.toggle('retry-wrong',item.checks>0&&!item.good);
+  });
+  const done=practiceTasks.every((_,i)=>locked(answers[i]));
+  el('checkPractice').disabled=done;el('toDebug').classList.toggle('hidden',!done);
+  score('practice',Object.values(answers).filter(t=>t.good).length*10);
+ }
+ el('checkPractice').onclick=()=>{
+  let pending=0,wrong=0;
+  practiceTasks.forEach((t,i)=>{
+   const item=answers[i];if(locked(item))return;
+   item.value=el('practice'+i).value;item.checks++;item.good=t.test(item.value);item.done=item.good||item.checks>=2;
+   if(item.good)earnedPractice.add(i);else wrong++;
+  });
+  render();practiceTasks.forEach((_,i)=>{if(!locked(answers[i]))pending++});
+  feedback('practiceFeedback',!wrong,pending?'Incorrect answers keep your typed code. Revise them and check once more.':wrong?'Both tries are complete. Continue to Debug.':'All answers are correct. Continue to Debug.');
+  save();
+ };
+ el('resetPractice').onclick=()=>{
+  practiceTasks.forEach((t,i)=>{if(!locked(answers[i])){answers[i].value=t.start;el('practice'+i).value=t.start}});
+  save();feedback('practiceFeedback',false,'Unfinished code cleared. Used tries were not reset.');
+ };
+ render();
+}
+function cssDebug(){
+ const d=state.debug;
+ if(!d.order){d.order=[...debugOrder];d.pos=debugPos;d.items={}}
+ d.items=d.items||{};
+ function render(){
+  score('debug',Object.values(d.items).filter(t=>t.good).length*10);
+  if(d.pos>=d.order.length){
+   el('debugCard').innerHTML='<h3>Debugging Complete</h3><p>'+Object.values(d.items).filter(t=>t.good).length+' of '+debugTasks.length+' correct.</p>';
+   el('checkDebug').disabled=true;el('debugNext').classList.remove('hidden');el('debugNext').textContent='Next Activity: Apply';el('debugNext').onclick=()=>openPanel('apply');return;
+  }
+  const i=d.order[d.pos],question=debugTasks[i],t=d.items[i]||(d.items[i]={checks:0,done:debugEarned.has(i),good:debugEarned.has(i),value:question.broken});
+  el('debugCard').innerHTML='<h3>Bug '+(d.pos+1)+' of '+d.order.length+'</h3><p>Repair this CSS:</p>';
+  const input=document.createElement('textarea');input.id='debugAnswer';input.className='editor';input.spellcheck=false;input.value=t.value;input.disabled=locked(t);el('debugCard').append(input);
+  input.oninput=()=>{t.value=input.value;save()};
+  el('checkDebug').disabled=locked(t);el('checkDebug').classList.remove('hidden');el('debugNext').classList.toggle('hidden',!locked(t));
+  el('debugNext').textContent=d.pos===d.order.length-1?'Finish Debug':'Next Bug';
+  el('debugNext').onclick=()=>{if(!locked(t))return;d.pos++;save();render()};
+  el('checkDebug').onclick=()=>{
+   if(locked(t))return;t.value=input.value;t.checks++;t.good=question.test(t.value);t.done=t.good||t.checks>=2;
+   if(t.good)debugEarned.add(i);
+   if(t.done)reviewMiss('Debug','Bug '+(i+1),t.value,question.fixed,question.why);
+   save();render();
+  };
+  el('debugProgress').style.width=(d.pos/d.order.length*100)+'%';
+  if(t.checks)status('debugFeedback',t,t.good,t.good?'Correct! '+question.why:locked(t)?'Both tries are complete. '+question.why:'Not fixed yet. Revise your code and check once more.');
+  else el('debugFeedback').className='feedback';
+ }
+ render();
+}
+function cssApply(){
+ simple('apply','checkApply',null,['liveCss','liveHtml'],()=>{
+  const c=el('liveCss').value,problems=[];
+  if(!/body\s*\{[\s\S]*background(-color)?\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('body background');
+  if(!/img\s*\{[\s\S]*width\s*:\s*250px\s*;?[\s\S]*\}/i.test(c))problems.push('image width 250px');
+  if(!/img\s*\{(?=[\s\S]*(border-style\s*:\s*solid|border\s*:[^;{}]*solid))(?=[\s\S]*(border-color\s*:|border\s*:[^;{}]*(#[0-9a-f]{3,8}|[a-z]+)))(?=[\s\S]*(border-width\s*:|border\s*:\s*\d+px))[\s\S]*\}/i.test(c))problems.push('solid border with width and color');
+  if(!/img\s*\{[\s\S]*border-radius\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('border-radius');
+  if(!/img\s*\{[\s\S]*margin\s*:\s*[^;{}]+;?[\s\S]*\}/i.test(c))problems.push('margin');
+  previewLive();return {good:!problems.length,message:problems.length?'Still needed: '+problems.join('; ')+'.':'Your page meets all five styling requirements.'};
+ },()=>score('apply',40));
+ const old=el('resetApply').onclick;el('resetApply').onclick=()=>{if(!locked(task('apply'))){old();save()}};el('resetApply').disabled=locked(task('apply'));
+}
+document.addEventListener('DOMContentLoaded',()=>{
+ if(!recovered)state.baseline={...scores};
+ if(recovered)Object.entries(state.fields||{}).forEach(([id,value])=>{if(el(id))el(id).value=value});
+ if(lesson===8){quiz('identify',identifyQuestions,'identify',5,'build');quiz('alt',altQuestions,'alttext',5,'debug');quiz('debug',debugQuestions,'debug',10,'apply');imageBuild();imageApply();}
+ else{quiz('review',reviewQuestions,'review',5,'files');cssFiles();cssPractice();cssDebug();cssApply();}
+ if(state.tasks.apply&&locked(state.tasks.apply))showResults();
+ save();
+ document.addEventListener('input',()=>{
+  if(lesson===9){
+   if(state.practice)practiceTasks.forEach((_,i)=>{if(el('practice'+i)&&!locked(state.practice[i]))state.practice[i].value=el('practice'+i).value});
+   state.fileState={created:cssCreated,renamed:cssRenamed,name:cssFileName};
+  }save();
+ });
+ document.addEventListener('click',()=>{if(lesson===9)state.fileState={created:cssCreated,renamed:cssRenamed,name:cssFileName};save()});
+ const clear=el('clearSavedPractice').onclick;el('clearSavedPractice').onclick=()=>{
+  clear();if(!localStorage.getItem('istPractice:'+location.pathname+':labState'))localStorage.removeItem(key);
+ };
+});
+})();
+
+
+</script>
 </body>
 </html>
+
